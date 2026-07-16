@@ -1,5 +1,6 @@
-const CACHE_NAME = "private-insurance-question-bank-v2";
-const CORE_ASSETS = ["/", "/offline-seed.encrypted.json", "/manifest.webmanifest", "/apple-touch-icon.png"];
+const CACHE_NAME = "private-insurance-question-bank-v3";
+const APP_BASE = new URL(self.registration.scope).pathname;
+const CORE_ASSETS = [APP_BASE, `${APP_BASE}offline-seed.encrypted.json`, `${APP_BASE}manifest.webmanifest`, `${APP_BASE}apple-touch-icon.png`];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(precacheShell().then(() => self.skipWaiting()));
@@ -11,11 +12,11 @@ self.addEventListener("activate", (event) => {
 
 async function precacheShell() {
   const cache = await caches.open(CACHE_NAME);
-  const shell = await fetch("/");
+  const shell = await fetch(APP_BASE);
   const html = await shell.clone().text();
   const assetUrls = Array.from(html.matchAll(/(?:src|href)="([^"]+)"/g), (match) => match[1]).filter((url) => url.startsWith("/"));
-  await cache.put("/", shell);
-  await cache.addAll([...CORE_ASSETS.filter((url) => url !== "/"), ...assetUrls]);
+  await cache.put(APP_BASE, shell);
+  await cache.addAll([...CORE_ASSETS.filter((url) => url !== APP_BASE), ...assetUrls]);
 }
 
 self.addEventListener("fetch", (event) => {
@@ -30,7 +31,7 @@ self.addEventListener("fetch", (event) => {
       }
       return response;
     } catch {
-      return caches.match("/");
+      return caches.match(APP_BASE);
     }
   }));
 });

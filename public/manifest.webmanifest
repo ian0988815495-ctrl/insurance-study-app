@@ -3,13 +3,13 @@
   "short_name": "保險題庫",
   "description": "個人離線保險考題練習",
   "lang": "zh-Hant",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#f7f8fa",
   "theme_color": "#176b87",
   "icons": [
     {
-      "src": "/apple-touch-icon.png",
+      "src": "apple-touch-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

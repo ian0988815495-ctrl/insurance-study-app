@@ -3,6 +3,7 @@ node_modules/
 .npm-cache/
 .pnpm-store/
 dist/
+dist-github-pages/
 data/
 backups/
 logs/

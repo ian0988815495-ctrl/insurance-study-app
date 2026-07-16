@@ -14,8 +14,10 @@ describe("離線 iPhone PWA 入口", () => {
     expect(html).toContain('apple-touch-icon.png');
     expect(manifest).toContain('"display": "standalone"');
     expect(manifest).toContain('apple-touch-icon.png');
+    expect(manifest).toContain('"start_url": "."');
     expect(serviceWorker).toContain("offline-seed.encrypted.json");
     expect(serviceWorker).not.toContain('"/offline-seed.json"');
+    expect(serviceWorker).toContain("self.registration.scope");
     expect(serviceWorker).toContain("matchAll");
     expect(packageJson).toContain('"build:offline"');
   });
