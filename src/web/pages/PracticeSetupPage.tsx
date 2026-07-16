@@ -1,4 +1,4 @@
-import { BrainCircuit, CircleHelp, ListOrdered, Shuffle } from "lucide-react";
+import { ArrowLeft, ArrowRight, BrainCircuit, CircleHelp, ListOrdered, Shuffle } from "lucide-react";
 import { useState } from "react";
 import type { PracticeMode } from "../types.ts";
 
@@ -21,6 +21,7 @@ const subjectOptions: { id: PracticeSubject; label: string }[] = [
 ];
 
 export function PracticeSetupPage({ onStart, onResume, activePractice, message }: { onStart: (settings: PracticeSettings) => void; onResume?: () => void; activePractice?: PracticeResume; message: string }) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [settings, setSettings] = useState<PracticeSettings>({ mode: "sequential", subject: "all", shuffleQuestions: false, shuffleOptions: false });
   const chooseMode = (mode: PracticeMode) => setSettings({
     ...settings,
@@ -29,7 +30,16 @@ export function PracticeSetupPage({ onStart, onResume, activePractice, message }
     shuffleOptions: mode === "random" ? true : mode === "sequential" ? false : settings.shuffleOptions
   });
   const resumeLabel = activePractice ? `${activePractice.subject.replace("保險", "")}繼續第 ${activePractice.index + 1} 題` : "";
-  return <section className="page"><h2>建立練習</h2>{activePractice && <section className="sync-panel"><h3>未完成練習</h3><p>{activePractice.subject}，第 {activePractice.index + 1} / {activePractice.total} 題</p><button onClick={onResume}>{resumeLabel}</button></section>}<div className="subject-selector" aria-label="練習科目">{subjectOptions.map((item) => <button key={item.id} type="button" aria-pressed={settings.subject === item.id} className={settings.subject === item.id ? "subject-button selected" : "subject-button"} onClick={() => setSettings({ ...settings, subject: item.id })}>{item.label}</button>)}</div><div className="mode-grid">{modeOptions.map((item) => <button key={item.id} onClick={() => chooseMode(item.id)} className={settings.mode === item.id ? "mode selected" : "mode"}>{item.icon}<span>{item.label}</span></button>)}</div><Toggle label="隨機考題" checked={settings.shuffleQuestions} onChange={(shuffleQuestions) => setSettings({ ...settings, shuffleQuestions })} /><Toggle label="打亂選項" checked={settings.shuffleOptions} onChange={(shuffleOptions) => setSettings({ ...settings, shuffleOptions })} />{message && <p className="notice">{message}</p>}<button className="primary" onClick={() => onStart(settings)}>開始作答</button></section>;
+  return <section className="page practice-setup-page">
+    <div className="page-heading"><span className="eyebrow">一步一步設定</span><h2>建立練習</h2><p>先選科目，再選方式，最後確認選項。</p></div>
+    {activePractice && <section className="resume-panel" aria-label="未完成練習"><div><span className="eyebrow">上次還沒完成</span><h3>{activePractice.subject}</h3><p>目前進度：第 {activePractice.index + 1} / {activePractice.total} 題</p></div><button className="resume-button" onClick={onResume}>{resumeLabel}<ArrowRight aria-hidden="true" /></button></section>}
+    <ol className="flow-stepper" aria-label="練習設定進度">
+      {([ [1, "選科目"], [2, "選方式"], [3, "確認"] ] as const).map(([number, label]) => <li key={number} className={step === number ? "current" : step > number ? "complete" : ""} aria-current={step === number ? "step" : undefined}><span>{number}</span>{label}</li>)}
+    </ol>
+    {step === 1 && <section className="setup-step" aria-labelledby="subject-step-title"><span className="step-kicker">第 1 步</span><h3 id="subject-step-title">今天想讀哪一科？</h3><div className="subject-selector" aria-label="練習科目">{subjectOptions.map((item) => <button key={item.id} type="button" aria-label={item.label} aria-pressed={settings.subject === item.id} className={settings.subject === item.id ? "subject-button selected" : "subject-button"} onClick={() => setSettings({ ...settings, subject: item.id })}>{item.label}<span>{item.id === "all" ? "完整複習" : item.id === "law" ? "法規觀念" : "實務題型"}</span></button>)}</div><button className="primary" onClick={() => setStep(2)}>下一步：選擇方式<ArrowRight aria-hidden="true" /></button></section>}
+    {step === 2 && <section className="setup-step" aria-labelledby="mode-step-title"><span className="step-kicker">第 2 步</span><h3 id="mode-step-title">想用哪種方式練習？</h3><div className="mode-grid">{modeOptions.map((item) => <button key={item.id} aria-label={item.label} onClick={() => chooseMode(item.id)} className={settings.mode === item.id ? "mode selected" : "mode"}>{item.icon}<span>{item.label}</span>{item.id === "sequential" && <small>照題庫順序</small>}{item.id === "random" && <small>換個方式挑戰</small>}{item.id === "wrong" && <small>集中修正弱點</small>}{item.id === "common-wrong" && <small>反覆加強常錯</small>}</button>)}</div><div className="step-actions"><button className="secondary" onClick={() => setStep(1)}><ArrowLeft aria-hidden="true" />上一步</button><button className="primary" onClick={() => setStep(3)}>下一步：確認設定<ArrowRight aria-hidden="true" /></button></div></section>}
+    {step === 3 && <section className="setup-step" aria-labelledby="options-step-title"><span className="step-kicker">第 3 步</span><h3 id="options-step-title">確認這次的練習</h3><div className="selection-summary"><div><span>科目</span><strong>{subjectOptions.find((item) => item.id === settings.subject)?.label}</strong></div><div><span>方式</span><strong>{modeOptions.find((item) => item.id === settings.mode)?.label}</strong></div></div><div className="setting-list"><Toggle label="隨機考題" checked={settings.shuffleQuestions} onChange={(shuffleQuestions) => setSettings({ ...settings, shuffleQuestions })} /><Toggle label="打亂選項" checked={settings.shuffleOptions} onChange={(shuffleOptions) => setSettings({ ...settings, shuffleOptions })} /></div>{message && <p className="notice">{message}</p>}<div className="step-actions"><button className="secondary" onClick={() => setStep(2)}><ArrowLeft aria-hidden="true" />上一步</button><button className="primary" onClick={() => onStart(settings)}>開始作答<ArrowRight aria-hidden="true" /></button></div></section>}
+  </section>;
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {

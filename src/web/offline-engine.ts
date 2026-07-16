@@ -1,6 +1,13 @@
-import type { Dashboard, PracticeMode, PracticeQuestion, Review } from "./types.ts";
+import type { Dashboard, OptionAnalysis, PracticeMode, PracticeQuestion, Review } from "./types.ts";
 
-export type OfflineQuestion = PracticeQuestion & { correctOptionId: string; rawExplanation: string };
+export type OfflineQuestion = PracticeQuestion & {
+  correctOptionId: string | null;
+  rawExplanation: string;
+  answerStatus?: "ready" | "pending-review";
+  suggestedAnswer?: { optionId: string; reason: string };
+  aiExplanation?: { content: string | null; status: string; model?: string | null };
+  aiOptionAnalysis?: OptionAnalysis[];
+};
 export type OfflineSeed = { version: number; questions: OfflineQuestion[] };
 export type OfflinePracticeSettings = { mode: PracticeMode; subject: "all" | "law" | "practice"; shuffleQuestions: boolean; shuffleOptions: boolean };
 
@@ -29,7 +36,7 @@ export function createOfflineEngine(seed: OfflineSeed, initial?: { attempts?: An
       };
     },
     createPracticeSession(settings: OfflinePracticeSettings) {
-      let questions = seed.questions.filter((question) => matchingSubject(question, settings.subject) && !masteredQuestionIds.has(question.id));
+      let questions = seed.questions.filter((question) => matchingSubject(question, settings.subject) && !masteredQuestionIds.has(question.id) && question.answerStatus !== "pending-review" && Boolean(question.correctOptionId));
       if (settings.mode === "wrong") questions = questions.filter((question) => isWrong(question.id));
       if (settings.mode === "common-wrong") questions = questions.filter((question) => isCommonWrong(question.id));
       if (settings.shuffleQuestions) questions = shuffle(questions);
@@ -37,13 +44,18 @@ export function createOfflineEngine(seed: OfflineSeed, initial?: { attempts?: An
     },
     recordAnswer(questionId: string, selectedOptionId: string) {
       const question = questionById(seed, questionId);
-      const isCorrect = question.correctOptionId === selectedOptionId;
+      const isCorrect = Boolean(question.correctOptionId && question.correctOptionId === selectedOptionId);
       attempts.push({ questionId, selectedOptionId, isCorrect });
       return isCorrect;
     },
     review(questionId: string): Review {
       const question = questionById(seed, questionId);
-      return { correctOptionId: question.correctOptionId, rawExplanation: question.rawExplanation, aiExplanation: { content: null, status: "disabled" }, aiOptionAnalysis: [] };
+      return {
+        correctOptionId: question.correctOptionId,
+        rawExplanation: question.rawExplanation,
+        aiExplanation: question.aiExplanation ?? { content: null, status: "pending", model: null },
+        aiOptionAnalysis: question.aiOptionAnalysis ?? []
+      };
     },
     setMastered(questionId: string, mastered: boolean) {
       if (mastered) masteredQuestionIds.add(questionId);

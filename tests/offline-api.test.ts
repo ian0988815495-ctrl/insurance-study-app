@@ -67,6 +67,41 @@ describe("離線 API", () => {
     expect(result).toMatchObject({ total: 100, correct: 0, score: 0 });
   });
 
+  it("回傳已合併的 AI 題目解析，並排除待確認答案題", async () => {
+    const values = new Map<string, string>();
+    const api = createOfflineApi({
+      loadSeed: async () => ({
+        version: 1,
+        questions: [
+          {
+            ...seed.questions[0],
+            aiExplanation: { content: "AI 白話解析", status: "ready", model: "ChatGPT 萬象中樞" },
+            aiOptionAnalysis: [{ optionId: "law-1-a", verdict: "incorrect", content: "選項分析" }, { optionId: "law-1-b", verdict: "correct", content: "正確分析" }]
+          },
+          {
+            id: "pending-1",
+            subject: "保險法規",
+            chapter: "第一章",
+            questionText: "待確認題",
+            correctOptionId: null,
+            answerStatus: "pending-review",
+            rawExplanation: "",
+            suggestedAnswer: { optionId: "pending-1-a", reason: "AI 建議，尚非正式答案" },
+            options: [{ id: "pending-1-a", text: "甲" }]
+          }
+        ]
+      }),
+      storage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) }
+    });
+
+    const session = await api<{ id: string; questionCount: number }>("/practice-sessions", { method: "POST", body: JSON.stringify({ mode: "sequential", subject: "law", shuffleQuestions: false, shuffleOptions: false }) });
+    const review = await api<{ aiExplanation: { content: string; status: string }; aiOptionAnalysis: unknown[] }>("/questions/law-1/review");
+
+    expect(session.questionCount).toBe(1);
+    expect(review.aiExplanation).toMatchObject({ content: "AI 白話解析", status: "ready" });
+    expect(review.aiOptionAnalysis).toHaveLength(2);
+  });
+
   it("可用雲端同步資料取代本機作答與考試日期", async () => {
     const values = new Map<string, string>();
     const api = createOfflineApi({ loadSeed: async () => seed, storage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) } });

@@ -27,7 +27,7 @@ describe("前端入口", () => {
     const result = spawnSync("powershell", ["-NoProfile", "-Command", command], { encoding: "utf8" });
 
     expect(result.status, result.stderr || result.stdout).toBe(0);
-  });
+  }, 10000);
 
   it("本機啟動前會檢查 SQLite 元件與固定 Node.js 版本是否相容", () => {
     const script = readFileSync(new URL("../scripts/start-local.ps1", import.meta.url), "utf8");

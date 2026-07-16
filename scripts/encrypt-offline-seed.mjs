@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import { minimumOfflineUnlockPasswordLength, validateOfflineUnlockPassword } from "./offline-password-policy.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const sourcePath = join(root, "work", "offline-seed.json");
-const outputPath = join(root, "public", "offline-seed.encrypted.json");
-const publicPlaintextPath = join(root, "public", "offline-seed.json");
+const sourcePath = process.env.OFFLINE_SEED_SOURCE?.trim() || join(root, "work", "offline-seed.json");
+const outputPath = process.env.OFFLINE_ENCRYPTED_OUTPUT?.trim() || join(root, "public", "offline-seed.encrypted.json");
+const publicPlaintextPath = process.env.OFFLINE_PUBLIC_PLAINTEXT_OUTPUT?.trim() || join(root, "public", "offline-seed.json");
 const password = process.env.OFFLINE_UNLOCK_PASSWORD?.trim();
 
 if (!validateOfflineUnlockPassword(password)) {

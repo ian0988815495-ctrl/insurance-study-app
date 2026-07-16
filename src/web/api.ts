@@ -11,7 +11,8 @@ let syncTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function resolveOfflineSeedPath(baseUrl: string) {
   const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  return `${normalizedBaseUrl}offline-seed.encrypted.json`;
+  const seedFile = import.meta.env.VITE_OFFLINE_SEED_FILE || "offline-seed.encrypted.json";
+  return `${normalizedBaseUrl}${seedFile}`;
 }
 
 export async function unlockOfflineApi(password: string) {

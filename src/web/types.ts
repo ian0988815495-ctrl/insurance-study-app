@@ -4,5 +4,5 @@ export type StudyPlan = { examDate: string | null; daysRemaining: number | null;
 export type Option = { id: string; sourceLabel?: string; text: string };
 export type PracticeQuestion = { id: string; subject: string; chapter: string; questionText: string; options: Option[] };
 export type OptionAnalysis = { optionId: string; verdict: "correct" | "incorrect" | "pending-review"; content: string };
-export type Review = { correctOptionId: string; rawExplanation: string; aiExplanation: { content: string | null; status: string }; aiOptionAnalysis?: OptionAnalysis[] };
+export type Review = { correctOptionId: string | null; rawExplanation: string; aiExplanation: { content: string | null; status: string; model?: string | null }; aiOptionAnalysis?: OptionAnalysis[] };
 export type PracticeMode = "sequential" | "random" | "wrong" | "common-wrong" | "study-plan";

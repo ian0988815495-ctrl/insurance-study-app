@@ -15,6 +15,8 @@ describe("練習設定", () => {
 
     expect(screen.getByRole("button", { name: "全部科目" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: "實務" }));
+    await user.click(screen.getByRole("button", { name: /下一步：選擇方式/ }));
+    await user.click(screen.getByRole("button", { name: /下一步：確認設定/ }));
     await user.click(screen.getByRole("button", { name: "開始作答" }));
     expect(onStart).toHaveBeenCalledWith({ mode: "sequential", subject: "practice", shuffleQuestions: false, shuffleOptions: false });
   });
@@ -24,10 +26,9 @@ describe("練習設定", () => {
     const onStart = vi.fn();
     render(<PracticeSetupPage onStart={onStart} message="" />);
 
-    expect(screen.getByRole("button", { name: "隨機考題 已關閉" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "打亂選項 已關閉" })).toBeTruthy();
-
+    await user.click(screen.getByRole("button", { name: /下一步：選擇方式/ }));
     await user.click(screen.getByRole("button", { name: "隨機練習" }));
+    await user.click(screen.getByRole("button", { name: /下一步：確認設定/ }));
     expect(screen.getByRole("button", { name: "隨機考題 已開啟" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "打亂選項 已開啟" })).toBeTruthy();
 
@@ -43,6 +44,8 @@ describe("練習設定", () => {
 
     expect(screen.getByRole("button", { name: "實務繼續第 5 題" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "法規" }));
+    await user.click(screen.getByRole("button", { name: /下一步：選擇方式/ }));
+    await user.click(screen.getByRole("button", { name: /下一步：確認設定/ }));
     await user.click(screen.getByRole("button", { name: "開始作答" }));
     expect(onStart).toHaveBeenCalledWith({ mode: "sequential", subject: "law", shuffleQuestions: false, shuffleOptions: false });
     expect(onResume).not.toHaveBeenCalled();
