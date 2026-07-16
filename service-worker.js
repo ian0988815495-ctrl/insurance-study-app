@@ -1,4 +1,4 @@
-const CACHE_NAME = "private-insurance-question-bank-v4";
+const CACHE_NAME = "private-insurance-question-bank-v5";
 const APP_BASE = new URL(self.registration.scope).pathname;
 const CORE_ASSETS = [APP_BASE, `${APP_BASE}offline-seed.encrypted.json`, `${APP_BASE}manifest.webmanifest`, `${APP_BASE}apple-touch-icon.png`];
 const NETWORK_FIRST_ASSETS = new Set([`${APP_BASE}offline-seed.encrypted.json`]);
