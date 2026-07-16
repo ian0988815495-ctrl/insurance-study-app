@@ -1,9 +1,9 @@
-import { createOfflineStore } from "./offline-store.ts";
+import { createOfflineStore, type OfflineState } from "./offline-store.ts";
 import type { OfflineQuestion, OfflineSeed } from "./offline-engine.ts";
 import type { Dashboard, PracticeQuestion, StudyPlan } from "./types.ts";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
-type OfflineApiOptions = { loadSeed: () => Promise<OfflineSeed>; storage?: StorageLike };
+type OfflineApiOptions = { loadSeed: () => Promise<OfflineSeed>; storage?: StorageLike; onStateChanged?: () => void };
 type OfflineSession = { questions: PracticeQuestion[] };
 type OfflineExam = { id: string; type: "law" | "practice"; endsAt: string; questions: OfflineQuestion[]; result?: ExamResult };
 type OfflineSeries = { lawExamId: string; practiceExamId?: string };
@@ -11,12 +11,18 @@ type ExamAnswer = { questionId: string; selectedOptionId: string };
 type ExamResult = { autoSubmitted: boolean; correct: number; total: number; score: number; passed: boolean; subjectResults: Array<{ subject: string; correct: number; total: number; score: number; passed: boolean }> };
 type RequestLike = Pick<RequestInit, "method" | "body">;
 
+export type OfflineApi = {
+  <T>(path: string, init?: RequestLike): Promise<T>;
+  exportSyncState(): Promise<OfflineState>;
+  replaceSyncState(state: OfflineState): Promise<void>;
+};
+
 const fixedExamRules = {
   law: { subject: "law", count: 100, durationMinutes: 80 },
   practice: { subject: "practice", count: 50, durationMinutes: 60 }
 } as const;
 
-export function createOfflineApi({ loadSeed, storage }: OfflineApiOptions) {
+export function createOfflineApi({ loadSeed, storage, onStateChanged }: OfflineApiOptions): OfflineApi {
   const sessions = new Map<string, OfflineSession>();
   const exams = new Map<string, OfflineExam>();
   const series = new Map<string, OfflineSeries>();
@@ -27,8 +33,9 @@ export function createOfflineApi({ loadSeed, storage }: OfflineApiOptions) {
     storePromise ??= loadSeed().then((seed) => createOfflineStore(seed, storage));
     return storePromise;
   };
+  const notifyStateChanged = () => { void Promise.resolve(onStateChanged?.()).catch(() => undefined); };
 
-  return async function offlineApi<T>(path: string, init: RequestLike = {}): Promise<T> {
+  const offlineApi = async function offlineApi<T>(path: string, init: RequestLike = {}): Promise<T> {
     const data = parseBody(init.body);
     const questionSessionMatch = path.match(/^\/practice-sessions\/([^/]+)\/questions$/);
     const reviewMatch = path.match(/^\/questions\/([^/]+)\/review$/);
@@ -44,6 +51,7 @@ export function createOfflineApi({ loadSeed, storage }: OfflineApiOptions) {
       const examDate = typeof data.examDate === "string" ? data.examDate : "";
       if (!isFutureCalendarDate(examDate)) throw new Error("考試日期不能早於今天。");
       localStore.setExamDate(examDate);
+      notifyStateChanged();
       return studyPlan(localStore) as T;
     }
     if (path === "/practice-sessions" && init.method === "POST") {
@@ -63,13 +71,16 @@ export function createOfflineApi({ loadSeed, storage }: OfflineApiOptions) {
     if (path === "/attempts" && init.method === "POST") {
       if (data.eventType === "answer") {
         if (typeof data.questionId !== "string" || typeof data.selectedOptionId !== "string") throw new Error("作答資料不完整。");
-        return { saved: true, isCorrect: localStore.recordAnswer(data.questionId, data.selectedOptionId) } as T;
+        const isCorrect = localStore.recordAnswer(data.questionId, data.selectedOptionId);
+        notifyStateChanged();
+        return { saved: true, isCorrect } as T;
       }
       return { saved: true } as T;
     }
     if (reviewMatch && (!init.method || init.method === "GET")) return localStore.review(reviewMatch[1]) as T;
     if (masteredMatch && init.method === "PATCH") {
       localStore.setMastered(masteredMatch[1], data.mastered === true);
+      notifyStateChanged();
       return { saved: true } as T;
     }
     if (path === "/exams/fixed" && init.method === "POST") {
@@ -89,6 +100,7 @@ export function createOfflineApi({ loadSeed, storage }: OfflineApiOptions) {
       if (exam.result) throw new Error("此模考已交卷。");
       const answers = Array.isArray(data.answers) ? data.answers.filter(isExamAnswer) : [];
       exam.result = scoreExam(localStore, exam, answers);
+      notifyStateChanged();
       return exam.result as T;
     }
     if (seriesNextMatch && init.method === "POST") {
@@ -120,10 +132,16 @@ export function createOfflineApi({ loadSeed, storage }: OfflineApiOptions) {
         throw new Error("還原前必須通過預覽並由使用者明確確認。");
       }
       localStore.restoreBackup(backup as Parameters<typeof localStore.restoreBackup>[0]);
+      notifyStateChanged();
       return { restored: true, safetyBackup: null } as T;
     }
     throw new Error("此離線功能尚未支援，請更新手機版題庫。");
   };
+  offlineApi.exportSyncState = async () => (await store()).exportState();
+  offlineApi.replaceSyncState = async (state: OfflineState) => {
+    (await store()).replaceSyncState(state);
+  };
+  return offlineApi;
 }
 
 function parseBody(body: BodyInit | null | undefined): Record<string, unknown> {
@@ -138,7 +156,7 @@ function parseBody(body: BodyInit | null | undefined): Record<string, unknown> {
 function studyPlan(store: ReturnType<typeof createOfflineStore>): StudyPlan {
   const snapshot = store.exportState();
   const dashboard: Dashboard = store.dashboard();
-  const attemptedIds = new Set(snapshot.attempts.map((attempt) => attempt.questionId));
+  const attemptedIds = new Set((snapshot.attempts ?? []).map((attempt) => attempt.questionId));
   const newCount = Math.max(0, dashboard.total - dashboard.mastered - attemptedIds.size);
   const examDate = store.getExamDate();
   const daysRemaining = examDate ? differenceInDays(examDate) : null;

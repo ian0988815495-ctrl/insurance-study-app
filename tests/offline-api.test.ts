@@ -66,4 +66,27 @@ describe("離線 API", () => {
     expect(new Date(exam.endsAt).getTime()).toBeGreaterThan(Date.now() + 79 * 60_000);
     expect(result).toMatchObject({ total: 100, correct: 0, score: 0 });
   });
+
+  it("可用雲端同步資料取代本機作答與考試日期", async () => {
+    const values = new Map<string, string>();
+    const api = createOfflineApi({ loadSeed: async () => seed, storage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) } });
+
+    await api("/attempts", { method: "POST", body: JSON.stringify({ questionId: "law-1", eventType: "answer", selectedOptionId: "law-1-a" }) });
+    await api("/study-plan/settings", { method: "PUT", body: JSON.stringify({ examDate: "2026-09-30" }) });
+
+    await api.replaceSyncState({
+      attempts: [{ questionId: "practice-1", selectedOptionId: "practice-1-a", isCorrect: true }],
+      masteredQuestionIds: ["practice-1"],
+      examDate: "2026-10-01",
+      updatedAt: "2026-07-16T06:00:00.000Z"
+    });
+
+    expect(await api.exportSyncState()).toEqual({
+      attempts: [{ questionId: "practice-1", selectedOptionId: "practice-1-a", isCorrect: true }],
+      masteredQuestionIds: ["practice-1"],
+      examDate: "2026-10-01",
+      updatedAt: "2026-07-16T06:00:00.000Z"
+    });
+    expect(await api<{ wrong: number }>("/dashboard")).toMatchObject({ wrong: 0, mastered: 1 });
+  });
 });

@@ -5,6 +5,7 @@ export type OfflineState = {
   attempts?: Array<{ questionId: string; selectedOptionId: string; isCorrect: boolean }>;
   masteredQuestionIds?: string[];
   examDate?: string | null;
+  updatedAt?: string;
 };
 export type OfflineBackup = { schemaVersion: 1; exportedAt: string; state: OfflineState };
 
@@ -16,7 +17,7 @@ export function createOfflineStore(seed: OfflineSeed, storage: StorageLike = win
     if (!raw) return {};
     try {
       const value = JSON.parse(raw) as OfflineState;
-      return { attempts: value.attempts ?? [], masteredQuestionIds: value.masteredQuestionIds ?? [], examDate: value.examDate ?? null };
+      return { attempts: value.attempts ?? [], masteredQuestionIds: value.masteredQuestionIds ?? [], examDate: value.examDate ?? null, updatedAt: value.updatedAt };
     } catch {
       return {};
     }
@@ -25,7 +26,12 @@ export function createOfflineStore(seed: OfflineSeed, storage: StorageLike = win
   const persistedState = readState();
   let engine = createOfflineEngine(seed, persistedState);
   let examDate = persistedState.examDate ?? null;
-  const save = () => storage.setItem(stateKey, JSON.stringify({ ...engine.exportState(), examDate }));
+  let updatedAt = persistedState.updatedAt;
+  const exportState = (): OfflineState => ({ ...engine.exportState(), examDate, updatedAt });
+  const save = (touch = true) => {
+    if (touch) updatedAt = new Date().toISOString();
+    storage.setItem(stateKey, JSON.stringify(exportState()));
+  };
 
   return {
     dashboard() {
@@ -38,7 +44,7 @@ export function createOfflineStore(seed: OfflineSeed, storage: StorageLike = win
       return engine.review(questionId);
     },
     exportState() {
-      return engine.exportState();
+      return exportState();
     },
     recordAnswer(questionId: string, selectedOptionId: string) {
       const result = engine.recordAnswer(questionId, selectedOptionId);
@@ -66,6 +72,15 @@ export function createOfflineStore(seed: OfflineSeed, storage: StorageLike = win
       engine = createOfflineEngine(seed, backup.state);
       examDate = backup.state.examDate ?? null;
       save();
+    },
+    replaceSyncState(state: OfflineState) {
+      if (!Array.isArray(state.attempts) || !Array.isArray(state.masteredQuestionIds)) {
+        throw new Error("同步資料格式不正確。");
+      }
+      engine = createOfflineEngine(seed, state);
+      examDate = state.examDate ?? null;
+      updatedAt = state.updatedAt;
+      save(false);
     }
   };
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArchiveRestore, BookOpenCheck, BrainCircuit, GraduationCap, LockKeyhole, Upload } from "lucide-react";
-import { api, isOfflinePwa, lockOfflineApi, unlockOfflineApi } from "./api.ts";
+import { api, clearPhonePractice, isOfflinePwa, lockOfflineApi, restorePhoneProgress, savePhonePractice, unlockOfflineApi } from "./api.ts";
+import { loadActivePractice } from "./active-practice.ts";
+import { getPhoneSyncSession, isPhoneSyncConfigured, signInPhoneSync, signOutPhoneSync, signUpPhoneSync } from "./phone-sync.ts";
 import type { Dashboard, PracticeQuestion, Review, StudyPlan } from "./types.ts";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
@@ -55,6 +57,7 @@ function QuestionBankApp() {
   const [serviceError, setServiceError] = useState<string | null>(null);
   const refresh = () => { void api<Dashboard>("/dashboard").then((value) => { setDashboard(value); setServiceError(null); }).catch((error) => setServiceError(error instanceof Error ? error.message : "無法讀取本機題庫服務。")); void api<StudyPlan>("/study-plan").then(setStudyPlan).catch(() => undefined); };
   useEffect(refresh, []);
+  useEffect(() => { if (isOfflinePwa) void restorePhoneProgress().then((restored) => { if (restored) refresh(); }).catch(() => undefined); }, []);
   const saveStudyPlan = async (examDate: string) => { setSavingStudyPlan(true); try { setStudyPlan(await api<StudyPlan>("/study-plan/settings", { method: "PUT", body: JSON.stringify({ examDate }) })); } finally { setSavingStudyPlan(false); } };
   const startStudyPlan = () => { setPracticeLaunch({ mode: "study-plan", subject: "all", shuffleQuestions: false, shuffleOptions: false }); setPage("practice"); };
 
@@ -80,9 +83,11 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
 function Practice({ initialSettings, onInitialStarted, onDone, onReturnHome }: { initialSettings: PracticeSettings | null; onInitialStarted: () => void; onDone: () => void; onReturnHome: () => void }) {
   const [questions, setQuestions] = useState<PracticeQuestion[] | null>(null); const [sessionId, setSessionId] = useState(""); const [message, setMessage] = useState(""); const [empty, setEmpty] = useState(false);
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
-  const start = async (settings: PracticeSettings) => { try { const session = await api<{ id: string; questionCount: number }>("/practice-sessions", { method: "POST", body: JSON.stringify(settings) }); if (!session.questionCount) { setEmpty(true); setMessage(""); return; } const data = await api<{ questions: PracticeQuestion[] }>(`/practice-sessions/${session.id}/questions`); setSessionId(session.id); setQuestions(data.questions); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : "無法建立練習。"); } };
+  const [activeProgress, setActiveProgress] = useState(() => loadActivePractice());
+  const start = async (settings: PracticeSettings) => { try { const session = await api<{ id: string; questionCount: number }>("/practice-sessions", { method: "POST", body: JSON.stringify(settings) }); if (!session.questionCount) { setEmpty(true); setMessage(""); return; } const data = await api<{ questions: PracticeQuestion[] }>(`/practice-sessions/${session.id}/questions`); const progress = { sessionId: session.id, questions: data.questions, index: 0 }; savePhonePractice(progress); setActiveProgress(progress); setSessionId(session.id); setQuestions(data.questions); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : "無法建立練習。"); } };
+  useEffect(() => { if (questions || !activeProgress) return; setSessionId(activeProgress.sessionId); setQuestions(activeProgress.questions); }, [activeProgress, questions]);
   useEffect(() => { if (!initialSettings || hasAutoStarted) return; setHasAutoStarted(true); onInitialStarted(); void start(initialSettings); }, [hasAutoStarted, initialSettings, onInitialStarted]);
-  if (questions) return <PracticeSessionPage sessionId={sessionId} questions={questions} recordAttempt={(questionId, activeSessionId, selectedOptionId) => api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId: activeSessionId, eventType: "answer", selectedOptionId }) })} loadReview={async (questionId) => { await api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId, eventType: "view_answer" }) }); return api<Review>(`/questions/${questionId}/review`); }} onMastered={(questionId) => api(`/questions/${questionId}/mastered`, { method: "PATCH", body: JSON.stringify({ mastered: true }) })} onExit={() => { setQuestions(null); onDone(); }} />;
+  if (questions) return <PracticeSessionPage sessionId={sessionId} questions={questions} initialProgress={activeProgress ?? undefined} onProgressChange={(progress) => { savePhonePractice(progress); setActiveProgress(progress); }} recordAttempt={(questionId, activeSessionId, selectedOptionId) => api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId: activeSessionId, eventType: "answer", selectedOptionId }) })} loadReview={async (questionId) => { await api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId, eventType: "view_answer" }) }); return api<Review>(`/questions/${questionId}/review`); }} onMastered={(questionId) => api(`/questions/${questionId}/mastered`, { method: "PATCH", body: JSON.stringify({ mastered: true }) })} onExit={() => { clearPhonePractice(); setActiveProgress(null); setQuestions(null); onDone(); }} />;
   if (empty) return <div className="page"><EmptyState onReturnHome={onReturnHome} /></div>;
   return <PracticeSetupPage onStart={start} message={message} />;
 }
@@ -128,5 +133,13 @@ function BackupPage() {
   };
   const chooseFile = (file?: File) => { if (!file) return; const reader = new FileReader(); reader.onload = async () => { try { const parsed = JSON.parse(String(reader.result)); const result = await api<{ questionCount: number; attemptCount: number }>("/backups/preview", { method: "POST", body: JSON.stringify(parsed) }); setBackup(parsed); setMessage(`備份預覽：${result.questionCount} 題、${result.attemptCount} 筆作答紀錄。`); } catch (error) { setBackup(undefined); setMessage(error instanceof Error ? error.message : "備份檔無法讀取。"); } }; reader.readAsText(file); };
   const restore = async () => { if (!backup) return; try { const result = await api<{ safetyBackup: string | null }>("/backups/restore", { method: "POST", body: JSON.stringify({ backup, confirmed: true }) }); setMessage(result.safetyBackup ? `還原完成，已建立還原前備份：${result.safetyBackup}` : "還原完成。"); } catch (error) { setMessage(error instanceof Error ? error.message : "還原失敗。"); } };
-  return <section className="page"><h2>備份與還原</h2><button className="primary" onClick={() => void exportBackup()}><ArchiveRestore />匯出完整 JSON</button><label className="file-input"><Upload />選擇備份 JSON<input type="file" accept="application/json" onChange={(event) => chooseFile(event.target.files?.[0])} /></label>{Boolean(backup) && <button className="danger" onClick={restore}>確認還原資料</button>}{message && <p className="notice">{message}</p>}</section>;
+  return <section className="page"><h2>備份與還原</h2><PhoneSyncPanel /><button className="primary" onClick={() => void exportBackup()}><ArchiveRestore />匯出完整 JSON</button><label className="file-input"><Upload />選擇備份 JSON<input type="file" accept={("application/json")} onChange={(event) => chooseFile(event.target.files?.[0])} /></label>{Boolean(backup) && <button className="danger" onClick={restore}>確認還原資料</button>}{message && <p className="notice">{message}</p>}</section>;
+}
+
+function PhoneSyncPanel() {
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [connected, setConnected] = useState(false); const [message, setMessage] = useState("");
+  useEffect(() => { if (isPhoneSyncConfigured) void getPhoneSyncSession().then((session) => setConnected(Boolean(session))).catch(() => undefined); }, []);
+  if (!isPhoneSyncConfigured) return null;
+  const signIn = async (create: boolean) => { try { const session = create ? await signUpPhoneSync(email, password) : await signInPhoneSync(email, password); setConnected(Boolean(session)); setMessage(session ? "手機同步已啟用。" : "確認信已寄出，請在此手機開啟信件完成驗證。"); } catch (error) { setMessage(error instanceof Error ? error.message : "無法啟用手機同步。"); } };
+  return <section className="sync-panel"><h3>手機進度同步</h3>{connected ? <><p>此手機會自動保存刷題進度，電腦不需要開著。</p><button onClick={() => void signOutPhoneSync().then(() => setConnected(false))}>登出同步帳號</button></> : <><label>電子信箱<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>同步密碼<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><div className="inline-actions"><button onClick={() => void signIn(false)} disabled={!email || password.length < 6}>登入</button><button className="primary" onClick={() => void signIn(true)} disabled={!email || password.length < 6}>建立同步帳號</button></div></>}{message && <p className="notice">{message}</p>}</section>;
 }

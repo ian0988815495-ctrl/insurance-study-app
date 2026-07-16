@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PracticeQuestion, Review } from "../types.ts";
+import type { ActivePractice } from "../active-practice.ts";
 
 type Props = {
   sessionId: string;
@@ -8,11 +9,15 @@ type Props = {
   loadReview: (questionId: string) => Promise<Review>;
   onExit: () => void;
   onMastered: (questionId: string) => Promise<void>;
+  initialProgress?: ActivePractice;
+  onProgressChange?: (progress: ActivePractice) => void;
 };
 
-export function PracticeSessionPage({ sessionId, questions, recordAttempt, loadReview, onExit, onMastered }: Props) {
-  const [index, setIndex] = useState(0); const [selected, setSelected] = useState<string>(); const [review, setReview] = useState<Review>(); const [message, setMessage] = useState("");
+export function PracticeSessionPage({ sessionId, questions, recordAttempt, loadReview, onExit, onMastered, initialProgress, onProgressChange = () => undefined }: Props) {
+  const [index, setIndex] = useState(initialProgress?.index ?? 0); const [selected, setSelected] = useState<string | undefined>(initialProgress?.selectedOptionId); const [review, setReview] = useState<Review>(); const [message, setMessage] = useState("");
   const question = questions[index];
+  useEffect(() => { if (initialProgress?.viewedAnswer) void viewAnswer(); }, []);
+  useEffect(() => { onProgressChange({ sessionId, questions, index, selectedOptionId: selected, viewedAnswer: Boolean(review) }); }, [index, selected, review, sessionId, questions, onProgressChange]);
   const answer = async (optionId: string) => { if (selected) return; setSelected(optionId); try { await recordAttempt(question.id, sessionId, optionId); } catch (error) { setMessage(error instanceof Error ? error.message : "無法儲存作答。"); } };
   const viewAnswer = async () => { try { setReview(await loadReview(question.id)); } catch (error) { setMessage(error instanceof Error ? error.message : "無法取得解析。"); } };
   const next = () => { if (index + 1 >= questions.length) return onExit(); setIndex(index + 1); setSelected(undefined); setReview(undefined); setMessage(""); };
