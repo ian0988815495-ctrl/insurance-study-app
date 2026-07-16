@@ -30,7 +30,7 @@ npm run build
 npm run build:offline
 ```
 
-輸出資料夾為 `dist-offline`。建置前必須在未提交的 `.env` 設定至少 16 個字元的 `OFFLINE_UNLOCK_PASSWORD`。題庫會以 AES-256-GCM 加密後才寫入部署檔；答題紀錄、已掌握題目與考試日期只保存在 iPhone 本機。首次以 HTTPS 開啟並加入主畫面後，即可在沒有開啟電腦的情況下使用。
+輸出資料夾為 `dist-offline`。建置前必須在未提交的 `.env` 設定至少 8 個字元的 `OFFLINE_UNLOCK_PASSWORD`。題庫會以 AES-256-GCM 加密後才寫入部署檔；答題紀錄、已掌握題目與考試日期只保存在 iPhone 本機。首次以 HTTPS 開啟並加入主畫面後，即可在沒有開啟電腦的情況下使用。
 
 GitHub Pages 網址與網站程式碼會公開，但部署內容不含原始資料庫、明文題庫、`.env` 或解鎖密碼。換手機前請先在「備份與還原」匯出 JSON，並在新裝置確認後還原。
 

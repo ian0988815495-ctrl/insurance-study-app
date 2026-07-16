@@ -3,6 +3,7 @@ import { createCipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { minimumOfflineUnlockPasswordLength, validateOfflineUnlockPassword } from "./offline-password-policy.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = join(root, "work", "offline-seed.json");
@@ -10,8 +11,8 @@ const outputPath = join(root, "public", "offline-seed.encrypted.json");
 const publicPlaintextPath = join(root, "public", "offline-seed.json");
 const password = process.env.OFFLINE_UNLOCK_PASSWORD?.trim();
 
-if (!password || password.length < 16) {
-  throw new Error("OFFLINE_UNLOCK_PASSWORD 必須至少 16 個字元，且只能保存在未提交的 .env 中。");
+if (!validateOfflineUnlockPassword(password)) {
+  throw new Error(`OFFLINE_UNLOCK_PASSWORD 必須至少 ${minimumOfflineUnlockPasswordLength} 個字元，且只能保存在未提交的 .env 中。`);
 }
 
 const salt = randomBytes(16);
