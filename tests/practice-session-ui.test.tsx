@@ -57,4 +57,14 @@ describe("一般練習作答", () => {
     expect(screen.getByText("錯誤。來源原始解析")).toBeTruthy();
     expect(screen.queryByText("訊息列錯誤")).toBeNull();
   });
+
+  it("可返回練習選擇且不把未完成進度當成結束", async () => {
+    const user = userEvent.setup();
+    const onBack = vi.fn();
+    render(<PracticeSessionPage sessionId="session-1" questions={[{ id: "question-1", subject: "保險實務", chapter: "第一章", questionText: "測試題", options: [{ id: "option-a", text: "甲" }] }]} recordAttempt={vi.fn().mockResolvedValue(undefined)} loadReview={vi.fn()} onExit={vi.fn()} onBack={onBack} onMastered={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "返回練習選擇" }));
+
+    expect(onBack).toHaveBeenCalledOnce();
+  });
 });
