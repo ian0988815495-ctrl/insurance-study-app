@@ -35,6 +35,22 @@ describe("練習設定", () => {
     expect(screen.getByRole("button", { name: "打亂選項 已關閉" })).toBeTruthy();
   });
 
+  it("有未完成進度時保留科目選擇，只有按下繼續才恢復原本練習", async () => {
+    const user = userEvent.setup();
+    const onStart = vi.fn();
+    const onResume = vi.fn();
+    render(<PracticeSetupPage onStart={onStart} onResume={onResume} activePractice={{ subject: "保險實務", index: 4, total: 30 }} message="" />);
+
+    expect(screen.getByRole("button", { name: "實務繼續第 5 題" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "法規" }));
+    await user.click(screen.getByRole("button", { name: "開始作答" }));
+    expect(onStart).toHaveBeenCalledWith({ mode: "sequential", subject: "law", shuffleQuestions: false, shuffleOptions: false });
+    expect(onResume).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "實務繼續第 5 題" }));
+    expect(onResume).toHaveBeenCalledOnce();
+  });
+
   it("題庫為空時提供可返回首頁的操作", async () => {
     const user = userEvent.setup();
     const onReturnHome = vi.fn();

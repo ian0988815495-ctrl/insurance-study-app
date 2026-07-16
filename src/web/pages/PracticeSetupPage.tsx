@@ -5,6 +5,7 @@ import type { PracticeMode } from "../types.ts";
 type PracticeSubject = "all" | "law" | "practice";
 
 export type PracticeSettings = { mode: PracticeMode; subject: PracticeSubject; shuffleQuestions: boolean; shuffleOptions: boolean };
+export type PracticeResume = { subject: string; index: number; total: number };
 
 const modeOptions: { id: PracticeMode; label: string; icon: React.ReactNode }[] = [
   { id: "sequential", label: "順序練習", icon: <ListOrdered /> },
@@ -19,7 +20,7 @@ const subjectOptions: { id: PracticeSubject; label: string }[] = [
   { id: "practice", label: "實務" }
 ];
 
-export function PracticeSetupPage({ onStart, message }: { onStart: (settings: PracticeSettings) => void; message: string }) {
+export function PracticeSetupPage({ onStart, onResume, activePractice, message }: { onStart: (settings: PracticeSettings) => void; onResume?: () => void; activePractice?: PracticeResume; message: string }) {
   const [settings, setSettings] = useState<PracticeSettings>({ mode: "sequential", subject: "all", shuffleQuestions: false, shuffleOptions: false });
   const chooseMode = (mode: PracticeMode) => setSettings({
     ...settings,
@@ -27,7 +28,8 @@ export function PracticeSetupPage({ onStart, message }: { onStart: (settings: Pr
     shuffleQuestions: mode === "random" ? true : mode === "sequential" ? false : settings.shuffleQuestions,
     shuffleOptions: mode === "random" ? true : mode === "sequential" ? false : settings.shuffleOptions
   });
-  return <section className="page"><h2>建立練習</h2><div className="subject-selector" aria-label="練習科目">{subjectOptions.map((item) => <button key={item.id} type="button" aria-pressed={settings.subject === item.id} className={settings.subject === item.id ? "subject-button selected" : "subject-button"} onClick={() => setSettings({ ...settings, subject: item.id })}>{item.label}</button>)}</div><div className="mode-grid">{modeOptions.map((item) => <button key={item.id} onClick={() => chooseMode(item.id)} className={settings.mode === item.id ? "mode selected" : "mode"}>{item.icon}<span>{item.label}</span></button>)}</div><Toggle label="隨機考題" checked={settings.shuffleQuestions} onChange={(shuffleQuestions) => setSettings({ ...settings, shuffleQuestions })} /><Toggle label="打亂選項" checked={settings.shuffleOptions} onChange={(shuffleOptions) => setSettings({ ...settings, shuffleOptions })} />{message && <p className="notice">{message}</p>}<button className="primary" onClick={() => onStart(settings)}>開始作答</button></section>;
+  const resumeLabel = activePractice ? `${activePractice.subject.replace("保險", "")}繼續第 ${activePractice.index + 1} 題` : "";
+  return <section className="page"><h2>建立練習</h2>{activePractice && <section className="sync-panel"><h3>未完成練習</h3><p>{activePractice.subject}，第 {activePractice.index + 1} / {activePractice.total} 題</p><button onClick={onResume}>{resumeLabel}</button></section>}<div className="subject-selector" aria-label="練習科目">{subjectOptions.map((item) => <button key={item.id} type="button" aria-pressed={settings.subject === item.id} className={settings.subject === item.id ? "subject-button selected" : "subject-button"} onClick={() => setSettings({ ...settings, subject: item.id })}>{item.label}</button>)}</div><div className="mode-grid">{modeOptions.map((item) => <button key={item.id} onClick={() => chooseMode(item.id)} className={settings.mode === item.id ? "mode selected" : "mode"}>{item.icon}<span>{item.label}</span></button>)}</div><Toggle label="隨機考題" checked={settings.shuffleQuestions} onChange={(shuffleQuestions) => setSettings({ ...settings, shuffleQuestions })} /><Toggle label="打亂選項" checked={settings.shuffleOptions} onChange={(shuffleOptions) => setSettings({ ...settings, shuffleOptions })} />{message && <p className="notice">{message}</p>}<button className="primary" onClick={() => onStart(settings)}>開始作答</button></section>;
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
