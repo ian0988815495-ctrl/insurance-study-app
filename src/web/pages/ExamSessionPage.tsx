@@ -1,0 +1,16 @@
+import { useEffect, useRef, useState } from "react";
+import type { PracticeQuestion } from "../types.ts";
+
+type ExamResult = { score: number; correct: number; total: number; passed: boolean; subjectResults: { subject: string; score: number; passed: boolean }[] };
+type ExamAnswer = { questionId: string; selectedOptionId: string };
+
+export function ExamSessionPage({ exam, onSubmit, onExit, resultActionLabel = "返回模考" }: { exam: { id: string; endsAt: string; questions: PracticeQuestion[] }; onSubmit: (examId: string, answers: ExamAnswer[]) => Promise<ExamResult>; onExit: () => void; resultActionLabel?: string }) {
+  const [index, setIndex] = useState(0); const [answers, setAnswers] = useState<Record<string, string>>({}); const [remaining, setRemaining] = useState(() => Math.max(0, new Date(exam.endsAt).getTime() - Date.now())); const [result, setResult] = useState<ExamResult>(); const [message, setMessage] = useState(""); const submitted = useRef(false);
+  const submit = async () => { if (submitted.current) return; submitted.current = true; try { setResult(await onSubmit(exam.id, Object.entries(answers).map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId })))); } catch (error) { submitted.current = false; setMessage(error instanceof Error ? error.message : "無法交卷，請稍後再試。"); } };
+  useEffect(() => { const tick = () => { const next = Math.max(0, new Date(exam.endsAt).getTime() - Date.now()); setRemaining(next); if (next === 0) void submit(); }; tick(); const timer = window.setInterval(tick, 1000); return () => window.clearInterval(timer); }, []);
+  if (result) return <section className="page result-page"><h2>{result.passed ? "模考通過" : "模考未通過"}</h2><strong className="result-score">{result.score.toFixed(0)}%</strong><p>{result.correct} / {result.total} 題答對</p>{result.subjectResults.map((item) => <div className="subject-result" key={item.subject}><span>{item.subject}</span><span>{item.score.toFixed(0)}% · {item.passed ? "通過" : "未通過"}</span></div>)}<button className="primary" onClick={onExit}>{resultActionLabel}</button></section>;
+  const question = exam.questions[index];
+  return <section className="page question-page"><div className="exam-top"><span>第 {index + 1} / {exam.questions.length} 題</span><strong>{formatRemaining(remaining)}</strong></div><p className="question-subject">{question.subject} · {question.chapter}</p><h2>{question.questionText}</h2><div className="options">{question.options.map((option) => <button key={option.id} className={answers[question.id] === option.id ? "option selected" : "option"} onClick={() => setAnswers({ ...answers, [question.id]: option.id })}><span className="radio" />{option.text}</button>)}</div><div className="exam-navigation"><button onClick={() => setIndex(Math.max(0, index - 1))} disabled={index === 0}>上一題</button><button onClick={() => setIndex(Math.min(exam.questions.length - 1, index + 1))} disabled={index === exam.questions.length - 1}>下一題</button></div><button className="danger" onClick={() => void submit()}>交卷</button>{message && <p className="notice">{message}</p>}</section>;
+}
+
+function formatRemaining(milliseconds: number) { const seconds = Math.ceil(milliseconds / 1000); return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
