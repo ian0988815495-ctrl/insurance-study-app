@@ -6,9 +6,14 @@ export const apiBase = isOfflinePwa ? "" : "http://127.0.0.1:3001/api";
 
 let offlineApi: ReturnType<typeof createOfflineApi> | null = null;
 
+export function resolveOfflineSeedPath(baseUrl: string) {
+  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return `${normalizedBaseUrl}offline-seed.encrypted.json`;
+}
+
 export async function unlockOfflineApi(password: string) {
   if (!isOfflinePwa) return;
-  const response = await fetch("/offline-seed.encrypted.json", { cache: "no-store" });
+  const response = await fetch(resolveOfflineSeedPath(import.meta.env.BASE_URL), { cache: "no-store" });
   if (!response.ok) throw new Error("無法載入加密題庫資料。");
   const seed = await unlockOfflineSeed(await response.json() as EncryptedOfflineSeed, password);
   offlineApi = createOfflineApi({ loadSeed: async () => seed });
