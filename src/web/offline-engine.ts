@@ -40,7 +40,7 @@ export function createOfflineEngine(seed: OfflineSeed, initial?: { attempts?: An
       if (settings.mode === "wrong") questions = questions.filter((question) => isWrong(question.id));
       if (settings.mode === "common-wrong") questions = questions.filter((question) => isCommonWrong(question.id));
       if (settings.shuffleQuestions) questions = shuffle(questions);
-      return { id: crypto.randomUUID(), questions: questions.map((question) => ({ ...question, options: settings.shuffleOptions ? shuffle(question.options) : [...question.options] })) };
+      return { id: crypto.randomUUID(), questions: questions.map((question) => ({ ...question, options: [...question.options] })) };
     },
     recordAnswer(questionId: string, selectedOptionId: string) {
       const question = questionById(seed, questionId);

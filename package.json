@@ -11,7 +11,7 @@
     "build:offline": "node scripts/export-offline-seed.mjs && node scripts/encrypt-offline-seed.mjs && vite build --mode offline",
     "build:offline:chatgpt": "node scripts/build-offline-chatgpt.mjs",
     "build:offline:confirmed": "node scripts/build-offline-confirmed.mjs",
-    "build:github-pages": "node scripts/export-offline-seed.mjs && node scripts/encrypt-offline-seed.mjs && vite build --mode github-pages",
+    "build:github-pages": "node scripts/build-github-pages.mjs",
     "export:offline-seed": "node scripts/export-offline-seed.mjs",
     "export:chatgpt-analysis": "node scripts/export-chatgpt-analysis-package.mjs",
     "test": "vitest run",

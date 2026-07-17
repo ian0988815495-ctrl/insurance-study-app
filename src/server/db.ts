@@ -390,11 +390,10 @@ export class QuestionDatabase {
     };
   }
 
-  getQuestions(ids: string[], shuffleOptions: boolean): QuestionForPractice[] {
+  getQuestions(ids: string[], _shuffleOptions: boolean): QuestionForPractice[] {
     return ids.map((id) => {
       const question = this.questionWithOptions(id);
       const options = [...question.options];
-      if (shuffleOptions) shuffle(options);
       return { id: question.id, subject: question.subject, chapter: question.chapter, questionText: question.questionText, options };
     });
   }

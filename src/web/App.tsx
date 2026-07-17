@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArchiveRestore, BookOpenCheck, BrainCircuit, GraduationCap, LockKeyhole, Upload } from "lucide-react";
 import { api, clearPhonePractice, isOfflinePwa, lockOfflineApi, restorePhoneProgress, savePhonePractice, unlockOfflineApi } from "./api.ts";
-import { loadActivePractice } from "./active-practice.ts";
+import { loadActivePractice, type ActivePractice } from "./active-practice.ts";
 import { getPhoneSyncSession, isPhoneSyncConfigured, signInPhoneSync, signOutPhoneSync, signUpPhoneSync } from "./phone-sync.ts";
 import type { Dashboard, PracticeQuestion, Review, StudyPlan } from "./types.ts";
 import { EmptyState } from "./components/EmptyState.tsx";
@@ -49,7 +49,9 @@ function OfflineUnlockGate() {
 }
 
 function QuestionBankApp() {
-  const [page, setPage] = useState<"home" | "practice" | "exam" | "backup">("home");
+  const [initialActivePractice] = useState(() => loadActivePractice());
+  const [resumeOnLaunch, setResumeOnLaunch] = useState(Boolean(initialActivePractice));
+  const [page, setPage] = useState<"home" | "practice" | "exam" | "backup">(() => initialActivePractice ? "practice" : "home");
   const [dashboard, setDashboard] = useState<Dashboard>({ total: 0, wrong: 0, commonWrong: 0, mastered: 0 });
   const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null);
   const [savingStudyPlan, setSavingStudyPlan] = useState(false);
@@ -64,7 +66,7 @@ function QuestionBankApp() {
   return <main className="app-shell">
     <header className="topbar"><div><span className="eyebrow">私人題庫</span><h1>人身保險</h1></div><BookOpenCheck aria-hidden="true" /></header>
     {page === "home" && <HomePage dashboard={dashboard} plan={studyPlan} savingPlan={savingStudyPlan} onSaveDate={saveStudyPlan} onStartStudyPlan={startStudyPlan} onNavigate={setPage} serviceError={serviceError} />}
-    {page === "practice" && <Practice initialSettings={practiceLaunch} onInitialStarted={() => setPracticeLaunch(null)} onDone={refresh} onReturnHome={() => { setPracticeLaunch(null); setPage("home"); }} />}
+    {page === "practice" && <Practice initialSettings={practiceLaunch} autoResume={resumeOnLaunch} onAutoResumeHandled={() => setResumeOnLaunch(false)} onInitialStarted={() => setPracticeLaunch(null)} onDone={refresh} onReturnHome={() => { setPracticeLaunch(null); setPage("home"); }} />}
     {page === "exam" && <ExamPage />}
     {page === "backup" && <BackupPage />}
     <nav className="bottom-nav" aria-label="主要功能">
@@ -80,15 +82,28 @@ function NavButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return <button className={active ? "nav-button active" : "nav-button"} onClick={onClick}>{icon}<span>{label}</span></button>;
 }
 
-function Practice({ initialSettings, onInitialStarted, onDone, onReturnHome }: { initialSettings: PracticeSettings | null; onInitialStarted: () => void; onDone: () => void; onReturnHome: () => void }) {
+function Practice({ initialSettings, autoResume, onAutoResumeHandled, onInitialStarted, onDone, onReturnHome }: { initialSettings: PracticeSettings | null; autoResume: boolean; onAutoResumeHandled: () => void; onInitialStarted: () => void; onDone: () => void; onReturnHome: () => void }) {
   const [questions, setQuestions] = useState<PracticeQuestion[] | null>(null); const [sessionId, setSessionId] = useState(""); const [message, setMessage] = useState(""); const [empty, setEmpty] = useState(false);
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
   const [activeProgress, setActiveProgress] = useState(() => loadActivePractice());
   const openSession = (progress: NonNullable<typeof activeProgress>) => { window.history.pushState({ view: "practice-session" }, ""); setSessionId(progress.sessionId); setQuestions(progress.questions); };
-  const start = async (settings: PracticeSettings) => { try { const session = await api<{ id: string; questionCount: number }>("/practice-sessions", { method: "POST", body: JSON.stringify(settings) }); if (!session.questionCount) { setEmpty(true); setMessage(""); return; } const data = await api<{ questions: PracticeQuestion[] }>(`/practice-sessions/${session.id}/questions`); const progress = { sessionId: session.id, questions: data.questions, index: 0 }; savePhonePractice(progress); setActiveProgress(progress); openSession(progress); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : "無法建立練習。"); } };
+  const start = async (settings: PracticeSettings) => {
+    if (activeProgress && !window.confirm("確定要結束目前測驗嗎？\n目前的測驗進度將會結束，下次進入時會重新開始新的測驗。")) return;
+    try {
+      const session = await api<{ id: string; questionCount: number }>("/practice-sessions", { method: "POST", body: JSON.stringify(settings) });
+      if (!session.questionCount) { setEmpty(true); setMessage(""); return; }
+      const data = await api<{ questions: PracticeQuestion[] }>(`/practice-sessions/${session.id}/questions`);
+      if (activeProgress) { clearPhonePractice(); setActiveProgress(null); }
+      const now = new Date().toISOString();
+      const progress: ActivePractice = { sessionId: session.id, questions: data.questions, index: 0, selectedAnswers: {}, revealedQuestions: [], recordedAnswers: {}, sessionStatus: "active", startedAt: now, updatedAt: now };
+      savePhonePractice(progress); setActiveProgress(progress); openSession(progress); setMessage("");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "無法建立練習。"); }
+  };
+  const handleProgressChange = useCallback((progress: ActivePractice) => { savePhonePractice(progress); setActiveProgress(progress); }, []);
   useEffect(() => { const returnToSetup = () => setQuestions(null); window.addEventListener("popstate", returnToSetup); return () => window.removeEventListener("popstate", returnToSetup); }, []);
+  useEffect(() => { if (autoResume && !initialSettings && activeProgress && !questions) { openSession(activeProgress); onAutoResumeHandled(); } }, [autoResume, initialSettings, activeProgress, questions, onAutoResumeHandled]);
   useEffect(() => { if (!initialSettings || hasAutoStarted) return; setHasAutoStarted(true); onInitialStarted(); void start(initialSettings); }, [hasAutoStarted, initialSettings, onInitialStarted]);
-  if (questions) return <PracticeSessionPage sessionId={sessionId} questions={questions} initialProgress={activeProgress ?? undefined} onProgressChange={(progress) => { savePhonePractice(progress); setActiveProgress(progress); }} onBack={() => window.history.back()} recordAttempt={(questionId, activeSessionId, selectedOptionId) => api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId: activeSessionId, eventType: "answer", selectedOptionId }) })} loadReview={async (questionId) => { await api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId, eventType: "view_answer" }) }); return api<Review>(`/questions/${questionId}/review`); }} onMastered={(questionId) => api(`/questions/${questionId}/mastered`, { method: "PATCH", body: JSON.stringify({ mastered: true }) })} onExit={() => { clearPhonePractice(); setActiveProgress(null); setQuestions(null); onDone(); }} />;
+  if (questions) return <PracticeSessionPage sessionId={sessionId} questions={questions} initialProgress={activeProgress ?? undefined} onProgressChange={handleProgressChange} onBack={() => window.history.back()} recordAttempt={(questionId, activeSessionId, selectedOptionId) => api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId: activeSessionId, eventType: "answer", selectedOptionId }) })} loadReview={async (questionId) => { await api("/attempts", { method: "POST", body: JSON.stringify({ questionId, sessionId, eventType: "view_answer" }) }); return api<Review>(`/questions/${questionId}/review`); }} onMastered={(questionId) => api(`/questions/${questionId}/mastered`, { method: "PATCH", body: JSON.stringify({ mastered: true }) })} onExit={() => { clearPhonePractice(); setActiveProgress(null); setQuestions(null); onDone(); }} />;
   if (empty) return <div className="page"><EmptyState onReturnHome={onReturnHome} /></div>;
   return <PracticeSetupPage onStart={start} onResume={activeProgress ? () => openSession(activeProgress) : undefined} activePractice={activeProgress ? { subject: activeProgress.questions[activeProgress.index]?.subject ?? "練習", index: activeProgress.index, total: activeProgress.questions.length } : undefined} message={message} />;
 }

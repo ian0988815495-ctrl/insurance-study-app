@@ -113,6 +113,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .progress { height: 7px; margin: 9px 0 24px; overflow: hidden; border-radius: 8px; background: #e6ece8; }
 .progress span { display: block; height: 100%; border-radius: inherit; background: #6c9f96; }
 .question-page { padding-top: 16px; }
+.question-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.question-toolbar .link-button { width: auto; min-height: 36px; margin-top: 0; padding: 0 10px; font-size: .84rem; }
 .back-button { min-height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border: 0; color: #687574; background: transparent; font-size: .84rem; }
 .back-button:hover { color: #4e817a; }
 .back-button svg { width: 17px; height: 17px; }
@@ -146,6 +148,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .inline-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .inline-actions button { min-height: 44px; border: 1px solid #a9c5bd; border-radius: 8px; background: #fffdf9; color: #4e817a; }
 .inline-actions .primary { margin: 0; background: #4e817a; color: #fffdf9; }
+.navigation-actions { margin-top: 18px; }
+.navigation-actions .secondary { margin: 0; }
+.navigation-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.confirm-dialog { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(35, 49, 48, .28); }
+.confirm-dialog-panel { width: min(100%, 360px); padding: 22px; border: 1px solid #dce6e0; border-radius: 10px; background: #fffdf9; box-shadow: 0 14px 36px rgba(35, 49, 48, .18); }
+.confirm-dialog-panel h2 { margin: 0; font-size: 1.1rem; line-height: 1.5; }
+.confirm-dialog-panel p { margin: 10px 0 0; color: #667174; line-height: 1.65; }
+.confirm-dialog-panel .inline-actions { margin-top: 18px; }
+.confirm-dialog-panel .danger { margin: 0; border: 0; }
 
 .study-plan { display: grid; gap: 12px; margin-top: 20px; padding: 18px 0 0; border-top: 1px solid #e1e7e3; }
 .study-plan-header h2 { margin: 2px 0 0; font-size: 1.22rem; }

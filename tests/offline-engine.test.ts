@@ -19,4 +19,11 @@ describe("離線題庫引擎", () => {
     expect(engine.review("law-1")).toMatchObject({ correctOptionId: "law-1-b", rawExplanation: "法規解析" });
     expect(engine.dashboard()).toMatchObject({ total: 2, wrong: 1, commonWrong: 0, mastered: 0 });
   });
+
+  it("即使設定快照含有打亂選項旗標，練習仍維持原始選項陣列順序", () => {
+    const engine = createOfflineEngine(seed);
+    const session = engine.createPracticeSession({ mode: "sequential", subject: "law", shuffleQuestions: false, shuffleOptions: true });
+
+    expect(session.questions[0].options.map((option) => option.id)).toEqual(["law-1-a", "law-1-b"]);
+  });
 });

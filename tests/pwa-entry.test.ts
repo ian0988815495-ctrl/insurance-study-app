@@ -19,7 +19,7 @@ describe("離線 iPhone PWA 入口", () => {
     expect(serviceWorker).not.toContain('"/offline-seed.json"');
     expect(serviceWorker).toContain("self.registration.scope");
     expect(serviceWorker).toContain("NETWORK_FIRST_ASSETS");
-    expect(serviceWorker).toContain("private-insurance-question-bank-v7");
+    expect(serviceWorker).toContain("private-insurance-question-bank-v8");
     expect(serviceWorker).toContain("matchAll");
     expect(packageJson).toContain('"build:offline"');
   });
